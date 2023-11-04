@@ -10,19 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/local"
+
+	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 func main() {
 	// Init context
-	ctx := context.Background()
-	if err := run(ctx); err != nil {
+	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(-1)
 	}
 }
 
-func run(ctx context.Context) error {
+func run() error {
 
 	// g := gin.Default()
 	r := gin.Default()
@@ -39,39 +39,33 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	// You may instantiate a client with a default bin and args from environment variable
-	// llm, err := local.New()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// Or instantiate a client with a custom bin and args options
-	clientOptions := []local.Option{
-		local.WithBin(os.Getenv("LOCAL_LLM_BIN")),
-		// local.WithArgs("--arg1=value1 --arg2=value2"),
-		local.WithGlobalAsArgs(), // build key-value arguments from global llms.Options, then append to args
-	}
-	llm, err := local.New(clientOptions...)
-
-	// By default, library will use default bin and args
-	// completion, err := llm.Call(ctx, "How many sides does a square have?")
-	// Or append to default args options from global llms.Options
-	generateOptions := []llms.CallOption{
-		// llms.WithTopK(10),
-		// llms.WithTopP(0.95),
-		// llms.WithSeed(13),
-		llms.WithModel("llama"),
-	}
-	// In that case command will look like: /path/to/bin --arg1=value1 --arg2=value2 --top_k=10 --top_p=0.95 --seed=13 "How many sides does a square have?"
-	completion, err := llm.Call(ctx, "How many sides does a square have?", generateOptions...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(completion)
-
-	// Ping test
 	r.GET("/ping", func(c *gin.Context) {
+		// Or instantiate a client with a custom bin and args options
+		llm, err := ollama.New(ollama.WithModel("llama2"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		ctx := context.Background()
+		completion, err := llm.Call(ctx, "Human: give me an example of a go code.\nAssistant:",
+			llms.WithTemperature(0.8),
+			llms.WithStreamingFunc(func(ctx context.Context, chunk []byte) error {
+				return nil
+			}),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
 		c.String(http.StatusOK, completion)
+	})
+
+	// a post api for upload a pdf file and save to local
+	r.POST("/upload", func(c *gin.Context) {
+		file, _ := c.FormFile("file")
+		log.Println(file.Filename)
+		// save the file to local
+		c.SaveUploadedFile(file, file.Filename)
+
+		c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
 	})
 	r.Run(os.Getenv("APP_PORT"))
 
