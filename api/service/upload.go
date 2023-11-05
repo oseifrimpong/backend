@@ -1,6 +1,7 @@
 package service
 
 type UploadService interface {
+	SaveDoc() error
 }
 
 type uploadSvc struct {
