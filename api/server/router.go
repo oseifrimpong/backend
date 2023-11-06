@@ -52,8 +52,9 @@ func uploadRouterGroup(router *gin.RouterGroup) {
 	svc := service.NewUploadService()
 	uploadController := delivery.NewUploadController(svc)
 
-	uploadGroup := router.Group("/upload")
+	uploadGroup := router.Group("/file")
 	{
 		uploadGroup.POST("", uploadController.Upload)
+		uploadGroup.GET("/load", uploadController.Load)
 	}
 }
